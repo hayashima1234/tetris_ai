@@ -247,4 +247,3 @@ class TetrisWorld
     #~ }
   end
 end
-
