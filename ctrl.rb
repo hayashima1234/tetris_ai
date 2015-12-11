@@ -28,10 +28,22 @@ class TetrisWorldController
     return @input_flag = @world.fastfall_cmino()
   end
   
-  def get_board()
-    return @world.board
+  def get_cmino()
+    return @world.get_cmino()
   end
-  def get_current_mino()
-    return @world.cmino
+  def get_board()
+    return @world.get_board()
+  end
+  def get_nexts()
+    return @world.get_nexts()
+  end
+  def get_clrline_num()
+    return @world.line_count
+  end
+  def get_spawn_num()
+    return @world.spawn_count
+  end
+  def get_time()
+    return @world.past_count
   end
 end

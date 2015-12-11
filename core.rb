@@ -59,8 +59,8 @@ end
 
 class TetrisBoard < Array2d
   WIDTH = 10
-  HEIGHT = 20
-  MAX_HEIGHT = 24
+  HEIGHT = DISPLAY_LINES
+  MAX_HEIGHT = DISPLAY_LINES + 4
 
   def initialize()
     super(WIDTH, MAX_HEIGHT, BlockType::EMPTY)
@@ -101,8 +101,7 @@ class TetrisBoard < Array2d
 end
 
 class TetrisWorld
-  attr_reader :board, :nexts, :cmino, :status
-  attr_reader :past_count, :spawn_count, :line_count
+  attr_reader :status, :past_count, :spawn_count, :line_count
 
   def initialize()
     @board = TetrisBoard.new()
@@ -125,6 +124,63 @@ class TetrisWorld
     MAX_NEXT_NUM.times{push_random_mino_to_nexts}
   end
 
+  def get_board() return @board.clone() end
+  def get_cmino() return @cmino.clone() if !@cmino.nil? end
+  def get_nexts() return @nexts.clone() end
+
+  def operatable?()
+    return false if @cmino == nil
+    return false if @status != Status::INPUT
+    return true
+  end
+  def move_cmino(dx, dy)  # return true if moved else false
+    return false if !operatable?
+
+    placeable = @board.placeable?(@cmino.x+dx, @cmino.y+dy, @cmino)
+    if placeable then
+      @cmino.x += dx
+      @cmino.y += dy
+      @moved = true
+    end
+    return placeable
+  end
+  def fastfall_cmino()
+    return false if !operatable?
+    while move_cmino(0, -1) do end
+    @moved = true
+    return true
+  end
+  def rot_cmino(direc)
+    return false if !operatable?
+    @cmino.send(direc)
+    if @board.placeable?(@cmino.x, @cmino.y, @cmino) then
+      @moved = true
+    else
+      # 回転後に重なるブロックがないように移動する
+      d = [[1, 0], [-1, 0], [0, 1]].find{|diff|
+        @board.placeable?(@cmino.x+diff[0], @cmino.y+diff[1], @cmino)
+      }
+      if d then
+        move_cmino(d[0], d[1])
+        @moved = true
+      else
+        # 左右上どこにも動けない時は回転しない(元に戻す)
+        # この場合は入力したことにならない
+        3.times{@cmino.send(direc)}
+        return false
+      end
+    end
+    return true
+  end
+  
+  def update()
+    self.send(@state_func[@status])
+    @past_count += 1 if @status != Status::GAMEOVER
+  end
+
+
+  private
+
   def push_random_mino_to_nexts()
     @nexts.push(TETROMINOES.keys.sample)
   end
@@ -140,74 +196,13 @@ class TetrisWorld
     end
     @cmino.x = sx
     @cmino.y = sy
-
-    put_cmino()
   end
-  def put_cmino()
+  def fix_cmino()
     mino = @cmino
     mino.each{|u, v, bt|
       next if bt == BlockType::EMPTY
       @board.set(mino.x+u, mino.y+v, bt)
     }
-  end
-  def float_cmino()
-    mino = @cmino
-    mino.each{|u, v, bt|
-      next if bt == BlockType::EMPTY
-      @board.set(mino.x+u, mino.y+v, BlockType::EMPTY)
-    }
-  end
-
-  def operatable?()
-    return false if @cmino == nil
-    return false if @status != Status::INPUT
-    return true
-  end
-  def move_cmino(dx, dy)  # return true if moved else false
-    return false if !operatable?
-
-    float_cmino()
-    placeable = @board.placeable?(@cmino.x+dx, @cmino.y+dy, @cmino)
-    if placeable then
-      @cmino.x += dx
-      @cmino.y += dy
-      @moved = true
-    end
-    put_cmino()
-    return placeable
-  end
-  def fastfall_cmino()
-    return false if !operatable?
-    while move_cmino(0, -1) do end
-    @moved = true
-    return true
-  end
-  def rot_cmino(direc)
-    return false if !operatable?
-    float_cmino()
-    @cmino.send(direc)
-    if @board.placeable?(@cmino.x, @cmino.y, @cmino) then
-      @moved = true
-    else
-      # 回転後に重なるブロックがないように移動する
-      d = [[1, 0], [-1, 0], [0, 1]].find{|diff|
-        @board.placeable?(@cmino.x+diff[0], @cmino.y+diff[1], @cmino)
-      }
-      if d then
-        move_cmino(d[0], d[1])
-        @moved = true
-      else
-        # 左右上どこにも動けない時は回転しない(元に戻す)
-        3.times{@cmino.send(direc)}
-      end
-    end
-    put_cmino()
-    return true
-  end
-
-  def update()
-    self.send(@state_func[@status])
-    @past_count += 1 if @status != Status::GAMEOVER
   end
 
 
@@ -220,12 +215,14 @@ class TetrisWorld
 
     # 新しいミノが完全にBoard外ならGame Over
     if @cmino.y >= TetrisBoard::HEIGHT then
+      fix_cmino()
       @status = Status::GAMEOVER
     end
   end
   def state_input()
     @moved |= move_cmino(0, -1)
     if !@moved then
+      fix_cmino()
       @status = Status::CHECK
     end
 

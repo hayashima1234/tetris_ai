@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 require './core.rb'
 require './disp.rb'
-require './ctr.rb'
+require './ctrl.rb'
 require './ai.rb'
 
 world = TetrisWorld.new()
@@ -10,8 +10,8 @@ display_init()
 
 
 ex = 2
-add_display_window(TetrisAreaWindow.new(2, ex, world.board))
-# add_display_window(BoardContentsWindow.new(3, ex+24, world.board))
+add_display_window(TetrisAreaWindow.new(2, ex, world))
+add_display_window(BoardContentsWindow.new(2, 50, world))
 add_display_window(NextWindow.new(2, ex+24, world))
 add_display_window(InfoWindow.new(20, ex+24, world))
 

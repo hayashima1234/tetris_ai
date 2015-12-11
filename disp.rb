@@ -11,7 +11,7 @@ def display_init()
   Curses.init_pair(BlockType::EMPTY, Curses::COLOR_WHITE, Curses::COLOR_BLACK)
   Curses.init_pair(BlockType::I, Curses::COLOR_BLACK, Curses::COLOR_CYAN)
   Curses.init_pair(BlockType::J, Curses::COLOR_BLACK, Curses::COLOR_BLUE)
-  Curses.init_pair(BlockType::L, Curses::COLOR_WHITE, Curses::COLOR_WHITE)
+  Curses.init_pair(BlockType::L, Curses::COLOR_BLACK, Curses::COLOR_WHITE)
   Curses.init_pair(BlockType::O, Curses::COLOR_BLACK, Curses::COLOR_YELLOW)
   Curses.init_pair(BlockType::S, Curses::COLOR_BLACK, Curses::COLOR_GREEN)
   Curses.init_pair(BlockType::T, Curses::COLOR_BLACK, Curses::COLOR_MAGENTA)
@@ -35,30 +35,44 @@ class TetrisAreaWindow
   WIDTH_SCALE = 2
   WIDTH = 10*WIDTH_SCALE+2
   HEIGHT = DISPLAY_LINES+2
-  def initialize(ox, oy, board)
+  def initialize(ox, oy, world)
     @win = Curses.stdscr.subwin(HEIGHT, WIDTH, ox, oy)
-    @board = board
+    @world = world
   end
 
   def draw()
-    # frame
-    @win.attrset(Curses.color_pair(3))
-    @win.box(?|, ?-, ?+)
-    
     # board
+    b = @world.get_board()
     DISPLAY_LINES.times{|y|
-      @board.row(y).each_with_index{|bt, x|
+      b.row(y).each_with_index{|bt, x|
         @win.setpos(HEIGHT-2-y, 1+x*WIDTH_SCALE)
         @win.attrset(Curses.color_pair(bt))
         @win.addstr(" "*WIDTH_SCALE)
       }
     }
+    
+    # cmino
+    c = @world.get_cmino()
+    if !c.nil? then
+      c.each{|u, v, bt|
+        next if bt == BlockType::EMPTY
+        x, y = c.x+u, c.y+v
+        @win.setpos(HEIGHT-2-y, 1+x*WIDTH_SCALE)
+        @win.attrset(Curses.color_pair(bt))
+        @win.addstr(" "*WIDTH_SCALE)
+      }
+    end
+    
+    # frame
+    @win.attrset(Curses.color_pair(3))
+    @win.box(?|, ?-, ?+)
+    
     @win.refresh
   end
 end
 
 class InfoWindow
-  WIDTH = 30
+  WIDTH = 20
   HEIGHT = 5
   STATUS_TEXTS = {
     Status::WAIT      => "Wait      ",
@@ -81,7 +95,7 @@ class InfoWindow
     @win.setpos(1, 0)
     @win.addstr("Spawn  :#{@world.spawn_count}")
     @win.setpos(2, 0)
-    @win.addstr("Past   :#{@world.past_count}")
+    @win.addstr("Time   :#{@world.past_count}")
     @win.setpos(3, 0)
     @win.addstr("Status :#{STATUS_TEXTS[@world.status]}")
     @win.refresh
@@ -90,13 +104,13 @@ end
 
 class BoardContentsWindow
   HEIGHT = 24
-  def initialize(ox, oy, board)
+  def initialize(ox, oy, world)
     @win = Curses.stdscr.subwin(HEIGHT, 20, ox, oy)
-    @board = board
+    @world = world
   end
   
   def draw()
-    @board.each{|x, y, bt|
+    @world.get_board().each{|x, y, bt|
       @win.setpos(HEIGHT-1-y, x*2)
       @win.attrset(Curses.color_pair(bt))
       @win.addstr("#{bt},")
@@ -146,7 +160,7 @@ class NextWindow
 
     @win.setpos(0, 0)
     @win.addstr("Next")
-    @world.nexts.each_with_index{|bt, i|
+    @world.get_nexts.each_with_index{|bt, i|
       TETROMINOES[bt].each_with_index{|row, y|
         row.each_with_index{|e, x|
           @win.setpos(2+3*i+y, x*2)
